@@ -19,11 +19,16 @@ export default Parent.extend(Evented, {
   locales: computed(getLocales),
 
   // @public
+  // Whether to allow overriding the locale for individual translations.
+  allowLocaleOverride: undefined,
+
+  // @public
   //
   // Returns the translation `key` interpolated with `data`
   // in the current `locale`.
   t: function(key, data = {}) {
-    const locale = this.get('_locale');
+    const locale = this._getLocaleWithOverride(data);
+
     assert("I18n: Cannot translate when locale is null", locale);
     const count = get(data, 'count');
 
@@ -41,7 +46,7 @@ export default Parent.extend(Evented, {
 
   // @public
   exists: function(key, data = {}) {
-    const locale = this.get('_locale');
+    const locale = this._getLocaleWithOverride(data);
     assert("I18n: Cannot check existance when locale is null", locale);
     const count = get(data, 'count');
 
@@ -71,6 +76,10 @@ export default Parent.extend(Evented, {
       }
       this.set('locale', defaultLocale);
     }
+
+    if (this.get('allowLocaleOverride') == null) {
+      this.set('allowLocaleOverride', (ENV.i18n || {}).allowLocaleOverride);
+    }
   }),
 
   // @private
@@ -83,6 +92,24 @@ export default Parent.extend(Evented, {
   _locale: computed('locale', function() {
     const locale = this.get('locale');
     return locale ? new Locale(this.get('locale'), getOwner(this)) : null;
-  })
+  }),
 
+  // @private
+  // Retrieves the current locale, allowing it to be overridden by a `locale`
+  // option in the translation data if `allowLocaleOverride` is enabled.
+  _getLocaleWithOverride: function(data) {
+    let locale = this.get('_locale');
+
+    if (data.locale && this.get('allowLocaleOverride') !== false) {
+      warn(
+        'Specifying an interpolation key named `locale` now overrides the target locale for translation. To silence this warning, set ENV.i18n.allowLocaleOverride to true. To disable this behavior and treat `locale` as a normal interpolation key, set ENV.i18n.allowLocaleOverride to false.',
+        (this.get('allowLocaleOverride') !== undefined),
+        { id: 'ember-i18n.locale-override' }
+      );
+      locale = new Locale(data.locale, getOwner(this));
+      delete data.locale;
+    }
+
+    return locale;
+  }
 });
