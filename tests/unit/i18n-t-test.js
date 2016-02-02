@@ -1,7 +1,24 @@
+import Ember from 'ember';
 import { moduleFor, test } from 'ember-qunit';
 
+let originalWarn = null;
+const warnings = Ember.A();
+
 moduleFor('service:i18n', 'I18nService#t', {
-  integration: true
+  integration: true,
+
+  beforeEach: function() {
+    originalWarn = Ember.Logger.warn;
+    Ember.Logger.warn = function(message, ...args) {
+      warnings.pushObject(message);
+      originalWarn(message, ...args);
+    };
+  },
+
+  afterEach: function() {
+    warnings.clear();
+    Ember.Logger.warn = originalWarn;
+  }
 });
 
 test('falls back to parent locale', function(assert) {
@@ -70,4 +87,28 @@ test("applies provided default translation in cascade when main one is not found
 test("check unknown locale", function(assert) {
   const result = this.subject({ locale: 'uy' }).t('not.yet.translated', {count: 2});
   assert.equal('Missing translation: not.yet.translated', result);
+});
+
+test("locale can be overridden and warns by default", function(assert) {
+  const i18n = this.subject({ locale: 'en' });
+
+  const result = i18n.t('no.interpolations', { locale: 'es' });
+  assert.equal(result, 'texto sin interpolaciones');
+  assert.equal(warnings.length, 1);
+});
+
+test("locale can be overridden and does not warn if allowLocaleOverride is true", function(assert) {
+  const i18n = this.subject({ locale: 'en', allowLocaleOverride: true });
+
+  const result = i18n.t('no.interpolations', { locale: 'es' });
+  assert.equal(result, 'texto sin interpolaciones');
+  assert.equal(warnings.length, 0);
+});
+
+test("locale can be used as an interpolation key if allowLocaleOverride is false", function(assert) {
+  const i18n = this.subject({ locale: 'en', allowLocaleOverride: false });
+
+  const result = i18n.t('with.locale.interpolation', { locale: 'es' });
+  assert.equal(result, 'Locale: es');
+  assert.equal(warnings.length, 0);
 });
